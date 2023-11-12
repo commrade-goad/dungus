@@ -11,6 +11,10 @@ cargo build --release
 dungus music.mp3
 ```
 - for now it only support 1 file.
+- `p` to toggle pause and play
+- `q` to quit
+- `[` volume down 5
+- `]` volume up 5
 
 ## TODO
 - [ ] multi file
