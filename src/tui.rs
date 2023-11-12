@@ -39,6 +39,7 @@ pub fn start_window(file: &str) -> i8 {
     let title: &str = "[[ DUNGUS - Music Player ]]";
     let keybinds: &str = "Press q to quit";
     let mut current_vol: usize = 100;
+    let mut is_paused:bool = false;
     tui_init_color();
     tui_additional_setup(&window);
     let mut media_metadata: Media = Media {
@@ -100,6 +101,17 @@ pub fn start_window(file: &str) -> i8 {
             tui_get_str_center_x_coord(&concated, max_x),
             &concated,
         );
+        let icon_l:&str;
+        let icon_r:&str;
+        if is_paused {
+            icon_l = "|";
+            icon_r = "|";
+        } else {
+            icon_l = ">";
+            icon_r = "<";
+        }
+        window.mvprintw((max_y / 8) + 2, tui_get_str_center_x_coord(&concated, max_x) - 2, icon_l);
+        window.mvprintw((max_y / 8) + 2, tui_get_str_center_x_coord(&concated, max_x) + concated.len() as i32 + 1, icon_r);
         window.attroff(COLOR_PAIR(2));
 
         match window.getch() {
@@ -107,6 +119,7 @@ pub fn start_window(file: &str) -> i8 {
             Some(Input::Character(c)) if c == 'p' || c == 'P' => {
                 window.clear();
                 sender.lock().unwrap().send(Command::PAUSED).unwrap();
+                is_paused = !is_paused;
             }
             Some(Input::Character(c)) if c == '[' => {
                 window.clear();
