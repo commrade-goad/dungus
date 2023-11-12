@@ -1,9 +1,12 @@
-use pancurses::{COLOR_BLACK, COLOR_BLUE, COLOR_GREEN, COLOR_PAIR, COLOR_RED, Input, Window, curs_set, endwin, init_pair, initscr, noecho, raw, start_color};
+use pancurses::{
+    curs_set, endwin, init_pair, initscr, noecho, raw, start_color, Input, Window, COLOR_BLACK,
+    COLOR_BLUE, COLOR_GREEN, COLOR_PAIR, COLOR_RED,
+};
 mod audio;
 use audio::{play_sound, read_metadata, Command, Media};
+use chrono::{DateTime, Duration, Local};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
-use chrono::{Duration, Local, DateTime};
 
 fn tui_init_color() {
     start_color();
@@ -35,6 +38,7 @@ pub fn start_window(file: &str) -> i8 {
     let window = initscr();
     let title: &str = "[[ DUNGUS - Music Player ]]";
     let keybinds: &str = "Press q to quit";
+    let mut current_vol: usize = 100;
     tui_init_color();
     tui_additional_setup(&window);
     let mut media_metadata: Media = Media {
@@ -47,7 +51,7 @@ pub fn start_window(file: &str) -> i8 {
         (Arc::new(Mutex::new(s)), Arc::new(Mutex::new(r)))
     };
 
-    let mut clear_timer:DateTime<Local> = Local::now();
+    let mut clear_timer: DateTime<Local> = Local::now();
 
     loop {
         let max_x: i32 = window.get_max_x();
@@ -59,6 +63,11 @@ pub fn start_window(file: &str) -> i8 {
             max_y - 1,
             tui_get_str_center_x_coord(keybinds, max_x),
             keybinds,
+        );
+        window.mvprintw(
+            max_y - 2,
+            tui_get_str_center_x_coord(&format!("Volume : {}", current_vol), max_x),
+            format!("Volume : {}", current_vol)
         );
 
         let current_time: DateTime<Local> = Local::now();
@@ -87,7 +96,7 @@ pub fn start_window(file: &str) -> i8 {
 
         window.attron(COLOR_PAIR(2));
         window.mvprintw(
-            (max_y / 3) - 2,
+            (max_y / 8) + 2,
             tui_get_str_center_x_coord(&concated, max_x),
             &concated,
         );
@@ -102,10 +111,20 @@ pub fn start_window(file: &str) -> i8 {
             Some(Input::Character(c)) if c == '[' => {
                 window.clear();
                 sender.lock().unwrap().send(Command::VOLDOWN(0.05)).unwrap();
+                if current_vol > 0 {
+                    current_vol -= 5;
+                } else {
+                    current_vol = 0;
+                }
             }
             Some(Input::Character(c)) if c == ']' => {
                 window.clear();
                 sender.lock().unwrap().send(Command::VOLUP(0.05)).unwrap();
+                if current_vol < 100 {
+                    current_vol += 5;
+                } else {
+                    current_vol = 100;
+                }
             }
             Some(Input::KeyResize) => {
                 window.clear();
