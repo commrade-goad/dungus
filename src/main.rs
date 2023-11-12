@@ -1,7 +1,7 @@
 mod tui;
-use tui::start_window;
 use std::env;
 use std::process;
+use tui::start_window;
 
 fn main() {
     let user_args: Vec<String> = env::args().collect();
@@ -11,4 +11,3 @@ fn main() {
     }
     start_window(&user_args[1]);
 }
-

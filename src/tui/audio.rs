@@ -1,15 +1,28 @@
-use lofty::{Probe, TaggedFileExt, Accessor};
+use lofty::{Accessor, Probe, TaggedFileExt};
 use rodio::{Decoder, OutputStream};
 use std::fs;
 use std::io::BufReader;
 use std::path;
+use std::sync::mpsc::Receiver;
+use std::sync::{Arc, Mutex};
 
 pub struct Media {
     pub title: String,
     pub artist: String,
 }
 
-pub fn play_sound(path_to_file: String) -> Option<rodio::Sink> {
+pub enum Command {
+    PAUSED,
+    PLAY,
+    STOP,
+    VOLUP(f32),
+    VOLDOWN(f32),
+}
+
+pub fn play_sound(
+    path_to_file: String,
+    receiver_clone: Arc<Mutex<Receiver<Command>>>,
+) -> Option<()> {
     match &path_to_file[..] {
         "none" => {
             return None;
@@ -27,9 +40,46 @@ pub fn play_sound(path_to_file: String) -> Option<rodio::Sink> {
             let source = Decoder::new(file).unwrap();
             let sink = rodio::Sink::try_new(&stream_handle).expect("ERR: Failed to create sink");
             sink.append(source);
-            return Some(sink);
+            loop {
+                match receiver_clone.lock().unwrap().recv() {
+                    Ok(Command::PAUSED) => toggle_pause(&sink),
+                    Ok(Command::PLAY) => todo!("PLAY"),
+                    Ok(Command::STOP) => todo!("STOP"),
+                    Ok(Command::VOLUP(val)) => {
+                        if get_current_volume(&sink) <= 0.95 {
+                            let value = get_current_volume(&sink) + val;
+                            sink.set_volume(value);
+                        } else {
+                            sink.set_volume(1.0);
+                        }
+                    }
+                    Ok(Command::VOLDOWN(val)) => {
+                        if get_current_volume(&sink) >= 0.05 {
+                            let value = get_current_volume(&sink) - val;
+                            sink.set_volume(value);
+                        } else {
+                            sink.set_volume(0.0);
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
+            // sink.sleep_until_end();
+            return Some(());
         }
     }
+}
+
+fn toggle_pause(sink: &rodio::Sink) {
+    if sink.is_paused() {
+        sink.play();
+    } else {
+        sink.pause();
+    }
+}
+
+fn get_current_volume(sink: &rodio::Sink) -> f32 {
+    return sink.volume();
 }
 
 pub fn read_metadata(path: &str) -> Media {
@@ -45,5 +95,5 @@ pub fn read_metadata(path: &str) -> Media {
     return Media {
         title: tag.title().as_deref().unwrap_or("None").to_string(),
         artist: tag.artist().as_deref().unwrap_or("None").to_string(),
-    }
+    };
 }
