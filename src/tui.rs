@@ -39,7 +39,7 @@ pub fn start_window(file: &str) -> i8 {
     let title: &str = "[[ DUNGUS - Music Player ]]";
     let keybinds: &str = "Press q to quit";
     let mut current_vol: usize = 100;
-    let mut is_paused:bool = false;
+    let mut is_paused: bool = false;
     tui_init_color();
     tui_additional_setup(&window);
     let mut media_metadata: Media = Media {
@@ -68,7 +68,7 @@ pub fn start_window(file: &str) -> i8 {
         window.mvprintw(
             max_y - 2,
             tui_get_str_center_x_coord(&format!("Volume : {}", current_vol), max_x),
-            format!("Volume : {}", current_vol)
+            format!("Volume : {}", current_vol),
         );
 
         let current_time: DateTime<Local> = Local::now();
@@ -85,8 +85,7 @@ pub fn start_window(file: &str) -> i8 {
             let file_path_clone = file_path.clone();
             let receiver_clone = Arc::clone(&receiver);
             thread::spawn(move || {
-                play_sound(file_path_clone, receiver_clone)
-                    .expect("ERR: Failed to play the audio.");
+                play_sound(file_path_clone, receiver_clone);
                 *m_thread_status_clone.lock().unwrap() = false;
             });
 
@@ -94,15 +93,14 @@ pub fn start_window(file: &str) -> i8 {
             concated = concate_title_n_artist(&media_metadata);
             *m_thread_status.lock().unwrap() = true;
         }
-
         window.attron(COLOR_PAIR(2));
         window.mvprintw(
             (max_y / 8) + 2,
             tui_get_str_center_x_coord(&concated, max_x),
             &concated,
         );
-        let icon_l:&str;
-        let icon_r:&str;
+        let icon_l: &str;
+        let icon_r: &str;
         if is_paused {
             icon_l = "|";
             icon_r = "|";
@@ -110,13 +108,24 @@ pub fn start_window(file: &str) -> i8 {
             icon_l = ">";
             icon_r = "<";
         }
-        window.mvprintw((max_y / 8) + 2, tui_get_str_center_x_coord(&concated, max_x) - 2, icon_l);
-        window.mvprintw((max_y / 8) + 2, tui_get_str_center_x_coord(&concated, max_x) + concated.len() as i32 + 1, icon_r);
+        window.mvprintw(
+            (max_y / 8) + 2,
+            tui_get_str_center_x_coord(&concated, max_x) - 2,
+            icon_l,
+        );
+        window.mvprintw(
+            (max_y / 8) + 2,
+            tui_get_str_center_x_coord(&concated, max_x) + concated.len() as i32 + 1,
+            icon_r,
+        );
         window.attroff(COLOR_PAIR(2));
 
         match window.getch() {
-            Some(Input::Character(c)) if c == 'q' || c == 'Q' => break,
-            Some(Input::Character(c)) if c == 'p' || c == 'P' => {
+            Some(Input::Character(c)) if c == 'q' || c == 'Q' => {
+                sender.lock().unwrap().send(Command::STOP).unwrap();
+                break;
+            }
+            Some(Input::Character(c)) if c == 'p' || c == 'P' || c == ' ' => {
                 window.clear();
                 sender.lock().unwrap().send(Command::PAUSED).unwrap();
                 is_paused = !is_paused;

@@ -13,7 +13,7 @@ pub struct Media {
 
 pub enum Command {
     PAUSED,
-    PLAY,
+    PLAY(String),
     STOP,
     VOLUP(f32),
     VOLDOWN(f32),
@@ -22,7 +22,7 @@ pub enum Command {
 pub fn play_sound(
     path_to_file: String,
     receiver_clone: Arc<Mutex<Receiver<Command>>>,
-) -> Option<()> {
+) -> Option<i32> {
     match &path_to_file[..] {
         "none" => {
             return None;
@@ -41,10 +41,13 @@ pub fn play_sound(
             let sink = rodio::Sink::try_new(&stream_handle).expect("ERR: Failed to create sink");
             sink.append(source);
             loop {
-                match receiver_clone.lock().unwrap().recv() {
+                match receiver_clone.lock().unwrap().try_recv() {
                     Ok(Command::PAUSED) => toggle_pause(&sink),
-                    Ok(Command::PLAY) => todo!("PLAY"),
-                    Ok(Command::STOP) => todo!("STOP"),
+                    Ok(Command::PLAY(val)) => todo!("PLAY"),
+                    Ok(Command::STOP) => {
+                        sink.clear();
+                        return Some(0);
+                    }
                     Ok(Command::VOLUP(val)) => {
                         if get_current_volume(&sink) <= 0.95 {
                             let value = get_current_volume(&sink) + val;
@@ -61,11 +64,12 @@ pub fn play_sound(
                             sink.set_volume(0.0);
                         }
                     }
-                    Err(_) => break,
+                    Err(_) => {}
+                }
+                if sink.empty() {
+                    return None;
                 }
             }
-            // sink.sleep_until_end();
-            return Some(());
         }
     }
 }
