@@ -25,7 +25,7 @@ pub fn play_sound(
 ) -> Option<i32> {
     match &path_to_file[..] {
         "none" => {
-            return None;
+            return Some(0);
         }
         _ => {}
     }
@@ -67,7 +67,7 @@ pub fn play_sound(
                     Err(_) => {}
                 }
                 if sink.empty() {
-                    return None;
+                    return Some(0);
                 }
             }
         }

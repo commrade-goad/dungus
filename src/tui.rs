@@ -85,7 +85,7 @@ pub fn start_window(file: &str) -> i8 {
             let file_path_clone = file_path.clone();
             let receiver_clone = Arc::clone(&receiver);
             thread::spawn(move || {
-                play_sound(file_path_clone, receiver_clone);
+                play_sound(file_path_clone, receiver_clone).expect("ERR: Failed to play the audio.");
                 *m_thread_status_clone.lock().unwrap() = false;
             });
 

@@ -19,7 +19,7 @@ dungus music.mp3
 ## TODO
 - [ ] multi file
 - [ ] change to use `Command::PLAY` to play audio
-- [ ] working stop
+- [x] working stop
 - [ ] bind `j` and `k` to change tracks
 - [ ] config file? (maybe not)
 - [ ] loop
