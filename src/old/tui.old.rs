@@ -1,10 +1,12 @@
-use crate::{audio::read_metadata, command::*};
-use std::sync::mpsc::{Receiver, Sender};
-use chrono::{DateTime, Duration as CDuration, Local};
 use pancurses::{
     curs_set, endwin, init_pair, initscr, noecho, raw, start_color, Input, Window, COLOR_BLACK,
     COLOR_BLUE, COLOR_GREEN, COLOR_PAIR, COLOR_RED,
 };
+mod audio;
+use audio::{play_sound, read_metadata, Command, Media};
+use chrono::{DateTime, Duration, Local};
+use std::sync::{mpsc, Arc, Mutex};
+use std::thread;
 
 fn tui_init_color() {
     start_color();
@@ -30,7 +32,9 @@ fn concate_title_n_artist(metadata: &Media) -> String {
     return format!("{} - {}", metadata.title, metadata.artist);
 }
 
-pub fn start_window(path_to_file:String, receiver2_clone: &Receiver<Command>, sender_clone: &Sender<Command>) -> i8{
+pub fn start_window(file: &str) -> i8 {
+    let m_thread_status: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
+    let file_path: String = file.to_string();
     let window = initscr();
     let title: &str = "[[ DUNGUS - Music Player ]]";
     let keybinds: &str = "Press q to quit";
@@ -42,24 +46,19 @@ pub fn start_window(path_to_file:String, receiver2_clone: &Receiver<Command>, se
         title: "None".to_string(),
         artist: "None".to_string(),
     };
-
-    media_metadata = read_metadata(&path_to_file);
     let mut concated = concate_title_n_artist(&media_metadata);
+    let (sender, receiver) = {
+        let (s, r) = mpsc::channel::<Command>();
+        (Arc::new(Mutex::new(s)), Arc::new(Mutex::new(r)))
+    };
+    let (sender2, receiver2) = {
+        let (s, r) = mpsc::channel::<Command>();
+        (Arc::new(Mutex::new(s)), Arc::new(Mutex::new(r)))
+    };
 
-    // let mut clear_timer: DateTime<Local> = Local::now();
+    let mut clear_timer: DateTime<Local> = Local::now();
 
     loop {
-        match receiver2_clone.try_recv() {
-            Ok(Command::EXIT) => return 0,
-            Ok(Command::VOL(v)) => {
-                current_vol = v;
-            },
-            Ok(_) => (),
-            Err(_) => (),
-        }
-        let percent_current_vol:i32 =(current_vol * 100.0) as i32; 
-
-        window.erase();
         let max_x: i32 = window.get_max_x();
         let max_y: i32 = window.get_max_y();
         window.attron(COLOR_PAIR(3));
@@ -72,16 +71,34 @@ pub fn start_window(path_to_file:String, receiver2_clone: &Receiver<Command>, se
         );
         window.mvprintw(
             max_y - 2,
-            tui_get_str_center_x_coord(&format!("Volume : {}", percent_current_vol), max_x),
-            format!("Volume : {}", percent_current_vol),
+            tui_get_str_center_x_coord(&format!("Volume : {}", current_vol), max_x),
+            format!("Volume : {}", current_vol),
         );
 
-        /* let current_time: DateTime<Local> = Local::now();
-        if current_time - clear_timer >= CDuration::seconds(2) {
+        let current_time: DateTime<Local> = Local::now();
+        if current_time - clear_timer >= Duration::seconds(3) {
             window.clear();
             clear_timer = Local::now();
-        } */
+        }
 
+        // to check if the thread is running or not
+        let thread_status = *m_thread_status.lock().unwrap();
+        if !thread_status {
+            // if its not running then this
+            let m_thread_status_clone = Arc::clone(&m_thread_status);
+            let file_path_clone = file_path.clone();
+            let receiver_clone = Arc::clone(&receiver);
+            let sender2_clone = Arc::clone(&sender2);
+            let receiver2_clone = Arc::clone(&receiver2);
+            thread::spawn(move || {
+                play_sound(file_path_clone, receiver_clone, sender2_clone).expect("ERR: Failed to play the audio.");
+                *m_thread_status_clone.lock().unwrap() = false;
+            });
+
+            media_metadata = read_metadata(&file_path);
+            concated = concate_title_n_artist(&media_metadata);
+            *m_thread_status.lock().unwrap() = true;
+        }
         window.attron(COLOR_PAIR(2));
         window.mvprintw(
             (max_y / 8) + 2,
@@ -110,27 +127,36 @@ pub fn start_window(path_to_file:String, receiver2_clone: &Receiver<Command>, se
         window.attroff(COLOR_PAIR(2));
 
         match window.getch() {
-            Some(Input::KeyResize) => {
-                window.clear();
-            }
-            Some(Input::Character(c)) if c == 'q' => {
-                sender_clone.send(Command::EXIT).unwrap();
+            Some(Input::Character(c)) if c == 'q' || c == 'Q' => {
+                sender.lock().unwrap().send(Command::STOP).unwrap();
                 break;
             }
-            Some(Input::Character(c)) if c == 'p' || c == ' ' => {
-                sender_clone.send(Command::PAUSED).unwrap();
+            Some(Input::Character(c)) if c == 'p' || c == 'P' || c == ' ' => {
+                window.clear();
+                sender.lock().unwrap().send(Command::PAUSED).unwrap();
                 is_paused = !is_paused;
             }
             Some(Input::Character(c)) if c == '[' => {
-                sender_clone.send(Command::VOLDOWN(0.05)).unwrap();
+                window.clear();
+                sender.lock().unwrap().send(Command::VOLDOWN(0.05)).unwrap();
             }
             Some(Input::Character(c)) if c == ']' => {
-                sender_clone.send(Command::VOLUP(0.05)).unwrap();
+                window.clear();
+                sender.lock().unwrap().send(Command::VOLUP(0.05)).unwrap();
+            }
+            Some(Input::KeyResize) => {
+                window.clear();
+                ()
             }
             Some(_) => (),
             None => (),
         };
 
+        match receiver2.lock().unwrap().try_recv() {
+            Ok(Command::VOL(x)) => current_vol = x,
+            Ok(_) => {}
+            Err(_) => {}
+        }
         window.mv(max_y + 1, max_x + 1);
         window.refresh();
     }

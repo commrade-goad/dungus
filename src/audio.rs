@@ -1,0 +1,100 @@
+use crate::command::*;
+use lofty::{Accessor, Probe, TaggedFileExt};
+use rodio::{Decoder, OutputStream};
+use std::fs;
+use std::io::BufReader;
+use std::path;
+use std::sync::mpsc::{Receiver, Sender};
+use std::thread::sleep;
+use std::time::Duration;
+
+pub fn audio_server(
+    path_to_file: String,
+    receiver_clone: &Receiver<Command>,
+    sender2_clone: &Sender<Command>,
+) -> i8 {
+    match &path_to_file[..] {
+        "none" => {
+            return 1;
+        }
+        _ => {}
+    }
+    match path::Path::new(&path_to_file).is_file() {
+        false => {
+            println!("Error : Cant read the specified file directory!");
+            return 1;
+        }
+        true => {
+            let (_stream, stream_handle) = OutputStream::try_default().unwrap();
+            let file = BufReader::new(fs::File::open(path_to_file).unwrap());
+            let source = Decoder::new(file).unwrap();
+            let sink = rodio::Sink::try_new(&stream_handle).expect("ERR: Failed to create sink");
+            sink.append(source);
+            loop {
+                sleep(Duration::from_millis(100));
+                match sender2_clone.send(Command::VOL(get_current_volume(&sink))) {
+                    Ok(_) =>(),
+                    Err(_) => ()
+                }
+                match receiver_clone.try_recv() {
+                    Ok(Command::PAUSED) => toggle_pause(&sink),
+                    Ok(Command::PLAY(val)) => {
+
+                    },
+                    Ok(Command::STOP) => {
+                        sink.clear();
+                    }
+                    Ok(Command::VOLUP(val)) => {
+                        if get_current_volume(&sink) <= 0.95 {
+                            let value = get_current_volume(&sink) + val;
+                            sink.set_volume(value);
+                        } else {
+                            sink.set_volume(1.0);
+                        }
+                    }
+                    Ok(Command::VOLDOWN(val)) => {
+                        if get_current_volume(&sink) >= 0.05 {
+                            let value = get_current_volume(&sink) - val;
+                            sink.set_volume(value);
+                        } else {
+                            sink.set_volume(0.0);
+                        }
+                    }
+                    Ok(Command::EXIT) => {
+                        return 0;
+                    }
+                    Ok(_) => {}
+                    Err(_) => {}
+                }
+            }
+        }
+    }
+}
+
+fn toggle_pause(sink: &rodio::Sink) {
+    if sink.is_paused() {
+        sink.play();
+    } else {
+        sink.pause();
+    }
+}
+
+fn get_current_volume(sink: &rodio::Sink) -> f32 {
+    return sink.volume();
+}
+
+pub fn read_metadata(path: &str) -> Media {
+    let tagged_file = Probe::open(path)
+        .expect("ERR: Failed to open the file.")
+        .read()
+        .expect("ERR: Failed to read the file.");
+
+    let tag = match tagged_file.primary_tag() {
+        Some(primary_tag) => primary_tag,
+        None => tagged_file.first_tag().expect("ERROR: No tags found!"),
+    };
+    return Media {
+        title: tag.title().as_deref().unwrap_or("None").to_string(),
+        artist: tag.artist().as_deref().unwrap_or("None").to_string(),
+    };
+}

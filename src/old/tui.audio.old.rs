@@ -3,7 +3,7 @@ use rodio::{Decoder, OutputStream};
 use std::fs;
 use std::io::BufReader;
 use std::path;
-use std::sync::mpsc::Receiver;
+use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
 
 pub struct Media {
@@ -17,11 +17,13 @@ pub enum Command {
     STOP,
     VOLUP(f32),
     VOLDOWN(f32),
+    VOL(f32),
 }
 
 pub fn play_sound(
     path_to_file: String,
     receiver_clone: Arc<Mutex<Receiver<Command>>>,
+    sender2_clone: Arc<Mutex<Sender<Command>>>,
 ) -> Option<i32> {
     match &path_to_file[..] {
         "none" => {
@@ -41,6 +43,8 @@ pub fn play_sound(
             let sink = rodio::Sink::try_new(&stream_handle).expect("ERR: Failed to create sink");
             sink.append(source);
             loop {
+                sender2_clone.lock().unwrap().send(Command::VOL(get_current_volume(&sink))).unwrap();
+
                 match receiver_clone.lock().unwrap().try_recv() {
                     Ok(Command::PAUSED) => toggle_pause(&sink),
                     Ok(Command::PLAY(val)) => todo!("PLAY"),
@@ -64,6 +68,7 @@ pub fn play_sound(
                             sink.set_volume(0.0);
                         }
                     }
+                    Ok(_) => {}
                     Err(_) => {}
                 }
                 if sink.empty() {
