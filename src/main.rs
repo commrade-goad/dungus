@@ -27,7 +27,7 @@ fn main() {
         start_window(file_path, &thread_1_receiver, &thread_1_sender);
     });
 
-    if audio_server(user_args[1].clone(), &thread_2_receiver, &thread_2_sender) == 0{
+    if audio_server(&thread_2_receiver, &thread_2_sender) == 0{
         println!("Audio thread exit successfully");
     }
 

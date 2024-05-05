@@ -45,6 +45,7 @@ pub fn start_window(path_to_file:String, receiver2_clone: &Receiver<Command>, se
 
     media_metadata = read_metadata(&path_to_file);
     let mut concated = concate_title_n_artist(&media_metadata);
+    sender_clone.send(Command::PLAY(path_to_file)).unwrap();
 
     // let mut clear_timer: DateTime<Local> = Local::now();
 
