@@ -23,8 +23,9 @@ fn main() {
 
     // Spawn the first thread
     let thread1 = thread::spawn(move || {
-        // random_func(&thread_1_receiver, &thread_1_sender);
-        start_window(file_path, &thread_1_receiver, &thread_1_sender);
+        if start_window(file_path, &thread_1_receiver, &thread_1_sender) == 0 {
+            println!("TUI thread exit successfully");
+        }
     });
 
     if audio_server(&thread_2_receiver, &thread_2_sender) == 0{

@@ -1,10 +1,26 @@
-use crate::{audio::read_metadata, command::*};
+use crate::command::*;
+use lofty::{Accessor, Probe, TaggedFileExt};
 use std::sync::mpsc::{Receiver, Sender};
-use chrono::{DateTime, Duration as CDuration, Local};
 use pancurses::{
     curs_set, endwin, init_pair, initscr, noecho, raw, start_color, Input, Window, COLOR_BLACK,
     COLOR_BLUE, COLOR_GREEN, COLOR_PAIR, COLOR_RED,
 };
+
+fn read_metadata(path: &str) -> Media {
+    let tagged_file = Probe::open(path)
+        .expect("ERR: Failed to open the file.")
+        .read()
+        .expect("ERR: Failed to read the file.");
+
+    let tag = match tagged_file.primary_tag() {
+        Some(primary_tag) => primary_tag,
+        None => tagged_file.first_tag().expect("ERROR: No tags found!"),
+    };
+    return Media {
+        title: tag.title().as_deref().unwrap_or("None").to_string(),
+        artist: tag.artist().as_deref().unwrap_or("None").to_string(),
+    };
+}
 
 fn tui_init_color() {
     start_color();
@@ -36,25 +52,37 @@ pub fn start_window(path_to_file:String, receiver2_clone: &Receiver<Command>, se
     let keybinds: &str = "Press q to quit";
     let mut current_vol: f32 = 0.0;
     let mut is_paused: bool = false;
+    let mut is_loop: bool = false;
     tui_init_color();
     tui_additional_setup(&window);
-    let mut media_metadata: Media = Media {
-        title: "None".to_string(),
-        artist: "None".to_string(),
-    };
+    let media_metadata: Media;
 
     media_metadata = read_metadata(&path_to_file);
-    let mut concated = concate_title_n_artist(&media_metadata);
-    sender_clone.send(Command::PLAY(path_to_file)).unwrap();
-
-    // let mut clear_timer: DateTime<Local> = Local::now();
+    let concated_metadata = concate_title_n_artist(&media_metadata);
+    sender_clone.send(Command::PLAY(path_to_file.clone())).unwrap();
 
     loop {
+        let loop_icon: String;
+        match is_loop {
+            true => loop_icon = "L".to_string(),
+            false => loop_icon = "l".to_string(),
+        }
         match receiver2_clone.try_recv() {
-            Ok(Command::EXIT) => return 0,
+            Ok(Command::EXIT) => {
+                endwin();
+                return 0;
+            },
             Ok(Command::VOL(v)) => {
                 current_vol = v;
             },
+            Ok(Command::LOOP(v)) => {
+               is_loop = v; 
+            },
+            Ok(Command::STOP) => {
+                if is_loop {
+                    sender_clone.send(Command::PLAY(path_to_file.clone())).unwrap();
+                }
+            }
             Ok(_) => (),
             Err(_) => (),
         }
@@ -72,22 +100,21 @@ pub fn start_window(path_to_file:String, receiver2_clone: &Receiver<Command>, se
             keybinds,
         );
         window.mvprintw(
+            max_y - 3,
+            tui_get_str_center_x_coord(&loop_icon, max_x),
+            format!("{}", loop_icon),
+        );
+        window.mvprintw(
             max_y - 2,
             tui_get_str_center_x_coord(&format!("Volume : {}", percent_current_vol), max_x),
             format!("Volume : {}", percent_current_vol),
         );
 
-        /* let current_time: DateTime<Local> = Local::now();
-        if current_time - clear_timer >= CDuration::seconds(2) {
-            window.clear();
-            clear_timer = Local::now();
-        } */
-
         window.attron(COLOR_PAIR(2));
         window.mvprintw(
             (max_y / 8) + 2,
-            tui_get_str_center_x_coord(&concated, max_x),
-            &concated,
+            tui_get_str_center_x_coord(&concated_metadata, max_x),
+            &concated_metadata,
         );
         let icon_l: &str;
         let icon_r: &str;
@@ -100,12 +127,12 @@ pub fn start_window(path_to_file:String, receiver2_clone: &Receiver<Command>, se
         }
         window.mvprintw(
             (max_y / 8) + 2,
-            tui_get_str_center_x_coord(&concated, max_x) - 2,
+            tui_get_str_center_x_coord(&concated_metadata, max_x) - 2,
             icon_l,
         );
         window.mvprintw(
             (max_y / 8) + 2,
-            tui_get_str_center_x_coord(&concated, max_x) + concated.len() as i32 + 1,
+            tui_get_str_center_x_coord(&concated_metadata, max_x) + concated_metadata.len() as i32 + 1,
             icon_r,
         );
         window.attroff(COLOR_PAIR(2));
@@ -127,6 +154,9 @@ pub fn start_window(path_to_file:String, receiver2_clone: &Receiver<Command>, se
             }
             Some(Input::Character(c)) if c == ']' => {
                 sender_clone.send(Command::VOLUP(0.05)).unwrap();
+            }
+            Some(Input::Character(c)) if c == 'l' => {
+                sender_clone.send(Command::LOOP(!is_loop)).unwrap();
             }
             Some(_) => (),
             None => (),

@@ -22,8 +22,8 @@ dungus music.mp3
 - [x] working stop
 - [ ] bind `j` and `k` to change tracks
 - [ ] config file? (maybe not)
-- [ ] loop
-- [ ] move metadata extract to main threads
+- [x] loop
+- [x] move metadata extract to main threads
 
 ## NOTE
 This project is still Work In Progress!

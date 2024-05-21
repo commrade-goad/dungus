@@ -6,6 +6,7 @@ pub enum Command {
     VOLDOWN(f32),
     VOL(f32),
     EXIT,
+    LOOP(bool),
 }
 
 pub struct Media {

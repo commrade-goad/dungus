@@ -1,5 +1,4 @@
 use crate::command::*;
-use lofty::{Accessor, Probe, TaggedFileExt};
 use rodio::{Decoder, OutputStream};
 use std::fs;
 use std::io::BufReader;
@@ -12,6 +11,7 @@ pub fn audio_server(
     receiver_clone: &Receiver<Command>,
     sender2_clone: &Sender<Command>,
 ) -> i8 {
+    let mut is_loop: bool = false;
     let (_stream, stream_handle) = OutputStream::try_default().unwrap();
     let sink = rodio::Sink::try_new(&stream_handle).expect("ERR: Failed to create sink");
     loop {
@@ -19,6 +19,16 @@ pub fn audio_server(
         match sender2_clone.send(Command::VOL(get_current_volume(&sink))) {
             Ok(_) =>(),
             Err(_) => ()
+        }
+        match sender2_clone.send(Command::LOOP(is_loop)) {
+            Ok(_) =>(),
+            Err(_) => ()
+        }
+        if sink.empty() {
+            match sender2_clone.send(Command::STOP) {
+                Ok(_) =>(),
+                Err(_) => ()
+            }
         }
         match receiver_clone.try_recv() {
             Ok(Command::PAUSED) => toggle_pause(&sink),
@@ -59,6 +69,9 @@ pub fn audio_server(
             Ok(Command::EXIT) => {
                 return 0;
             }
+            Ok(Command::LOOP(v)) => {
+                is_loop = v;
+            }
             Ok(_) => {}
             Err(_) => {}
         }
@@ -75,20 +88,4 @@ fn toggle_pause(sink: &rodio::Sink) {
 
 fn get_current_volume(sink: &rodio::Sink) -> f32 {
     return sink.volume();
-}
-
-pub fn read_metadata(path: &str) -> Media {
-    let tagged_file = Probe::open(path)
-        .expect("ERR: Failed to open the file.")
-        .read()
-        .expect("ERR: Failed to read the file.");
-
-    let tag = match tagged_file.primary_tag() {
-        Some(primary_tag) => primary_tag,
-        None => tagged_file.first_tag().expect("ERROR: No tags found!"),
-    };
-    return Media {
-        title: tag.title().as_deref().unwrap_or("None").to_string(),
-        artist: tag.artist().as_deref().unwrap_or("None").to_string(),
-    };
 }
