@@ -86,12 +86,14 @@ pub fn start_window(path_to_file:Vec<String>, receiver2_clone: &Receiver<Command
                 if is_loop {
                     sender_clone.send(Command::PLAY(path_to_file[counter].clone())).unwrap();
                 } else if path_to_file.len() > 1 {
-                    if counter_next {
+                    if counter_next && counter < path_to_file.len() - 1 {
                         counter += 1;
-                    } else if counter == 0 {
+                    } else if counter <= 0 {
                         counter = path_to_file.len() - 1;
-                    } else {
+                    } else if !counter_next {
                         counter -= 1;
+                    } else {
+                        counter = 0;
                     }
                     media_metadata = read_metadata(&path_to_file[counter]);
                     concated_metadata = concate_title_n_artist(&media_metadata);
