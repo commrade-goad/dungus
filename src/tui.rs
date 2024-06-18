@@ -46,7 +46,7 @@ fn concate_title_n_artist(metadata: &Media) -> String {
     return format!("{} - {}", metadata.title, metadata.artist);
 }
 
-pub fn start_window(path_to_file:String, receiver2_clone: &Receiver<Command>, sender_clone: &Sender<Command>) -> i8{
+pub fn start_window(path_to_file:Vec<String>, receiver2_clone: &Receiver<Command>, sender_clone: &Sender<Command>) -> i8{
     let window = initscr();
     let title: &str = "[[ DUNGUS - Music Player ]]";
     let keybinds: &str = "Press q to quit";
@@ -55,11 +55,15 @@ pub fn start_window(path_to_file:String, receiver2_clone: &Receiver<Command>, se
     let mut is_loop: bool = false;
     tui_init_color();
     tui_additional_setup(&window);
-    let media_metadata: Media;
+    let mut media_metadata: Media;
+    let mut concated_metadata: String;
+    let mut counter: usize = 0;
+    // true is next false is prev
+    let mut counter_next: bool = true;
 
-    media_metadata = read_metadata(&path_to_file);
-    let concated_metadata = concate_title_n_artist(&media_metadata);
-    sender_clone.send(Command::PLAY(path_to_file.clone())).unwrap();
+    media_metadata = read_metadata(&path_to_file[counter]);
+    concated_metadata = concate_title_n_artist(&media_metadata);
+    sender_clone.send(Command::PLAY(path_to_file[counter].clone())).unwrap();
 
     loop {
         let loop_icon: String;
@@ -80,7 +84,18 @@ pub fn start_window(path_to_file:String, receiver2_clone: &Receiver<Command>, se
             },
             Ok(Command::STOP) => {
                 if is_loop {
-                    sender_clone.send(Command::PLAY(path_to_file.clone())).unwrap();
+                    sender_clone.send(Command::PLAY(path_to_file[counter].clone())).unwrap();
+                } else if path_to_file.len() > 1 {
+                    if counter_next {
+                        counter += 1;
+                    } else if counter == 0 {
+                        counter = path_to_file.len() - 1;
+                    } else {
+                        counter -= 1;
+                    }
+                    media_metadata = read_metadata(&path_to_file[counter]);
+                    concated_metadata = concate_title_n_artist(&media_metadata);
+                    sender_clone.send(Command::PLAY(path_to_file[counter].clone())).unwrap();
                 }
             }
             Ok(_) => (),
@@ -157,6 +172,14 @@ pub fn start_window(path_to_file:String, receiver2_clone: &Receiver<Command>, se
             }
             Some(Input::Character(c)) if c == 'l' => {
                 sender_clone.send(Command::LOOP(!is_loop)).unwrap();
+            }
+            Some(Input::Character(c)) if c == 'j' => {
+                sender_clone.send(Command::STOP).unwrap();
+                counter_next = false;
+            }
+            Some(Input::Character(c)) if c == 'k' => {
+                sender_clone.send(Command::STOP).unwrap();
+                counter_next = true;
             }
             Some(_) => (),
             None => (),

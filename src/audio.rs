@@ -15,21 +15,7 @@ pub fn audio_server(
     let (_stream, stream_handle) = OutputStream::try_default().unwrap();
     let sink = rodio::Sink::try_new(&stream_handle).expect("ERR: Failed to create sink");
     loop {
-        sleep(Duration::from_millis(100));
-        match sender2_clone.send(Command::VOL(get_current_volume(&sink))) {
-            Ok(_) =>(),
-            Err(_) => ()
-        }
-        match sender2_clone.send(Command::LOOP(is_loop)) {
-            Ok(_) =>(),
-            Err(_) => ()
-        }
-        if sink.empty() {
-            match sender2_clone.send(Command::STOP) {
-                Ok(_) =>(),
-                Err(_) => ()
-            }
-        }
+        sleep(Duration::from_millis(50));
         match receiver_clone.try_recv() {
             Ok(Command::PAUSED) => toggle_pause(&sink),
             Ok(Command::PLAY(val)) => {
@@ -41,6 +27,7 @@ pub fn audio_server(
                                 let file = BufReader::new(fs::File::open(val).unwrap());
                                 let source = Decoder::new(file).unwrap();
                                 sink.append(source);
+                                sink.play();
                             } 
                             false => {}
                         }
@@ -74,6 +61,21 @@ pub fn audio_server(
             }
             Ok(_) => {}
             Err(_) => {}
+        }
+
+        match sender2_clone.send(Command::VOL(get_current_volume(&sink))) {
+            Ok(_) =>(),
+            Err(_) => ()
+        }
+        match sender2_clone.send(Command::LOOP(is_loop)) {
+            Ok(_) =>(),
+            Err(_) => ()
+        }
+        if sink.empty() {
+            match sender2_clone.send(Command::STOP) {
+                Ok(_) =>(),
+                Err(_) => ()
+            }
         }
     }
 }

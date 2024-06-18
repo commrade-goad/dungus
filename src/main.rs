@@ -15,7 +15,8 @@ fn main() {
         eprintln!("ERR: Not Enought args!");
         process::exit(1);
     }
-    let file_path: String = user_args[1].clone();
+    // let file_path: String = user_args[1].clone();
+    let file_path: Vec<String> = user_args[1..user_args.len()].to_vec();
 
     // Create a channel for sending and receiving messages
     let (thread_2_sender, thread_1_receiver) = mpsc::channel::<Command>();

@@ -17,10 +17,11 @@ dungus music.mp3
 - `]` volume up 5
 
 ## TODO
-- [ ] multi file
+- [x] multi file (still no folder support for now)
 - [x] change to use `Command::PLAY` to play audio
 - [x] working stop
-- [ ] bind `j` and `k` to change tracks
+- [x] bind `j` and `k` to change tracks
+- [ ] the media list
 - [ ] config file? (maybe not)
 - [x] loop
 - [x] move metadata extract to main threads
