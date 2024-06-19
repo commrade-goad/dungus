@@ -77,6 +77,17 @@ pub fn audio_server(
                 Err(_) => ()
             }
         }
+        if sink.is_paused() {
+            match sender2_clone.send(Command::STATUS_PAUSED) {
+                Ok(_) =>(),
+                Err(_) => ()
+            }
+        } else {
+            match sender2_clone.send(Command::STATUS_PLAYING) {
+                Ok(_) =>(),
+                Err(_) => ()
+            }
+        }
     }
 }
 

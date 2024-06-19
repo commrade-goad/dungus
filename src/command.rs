@@ -7,6 +7,8 @@ pub enum Command {
     VOL(f32),
     EXIT,
     LOOP(bool),
+    STATUS_PLAYING,
+    STATUS_PAUSED,
 }
 
 pub struct Media {
