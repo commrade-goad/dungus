@@ -2,8 +2,7 @@ use crate::command::*;
 use lofty::{Accessor, Probe, TaggedFileExt};
 use std::sync::mpsc::{Receiver, Sender};
 use pancurses::{
-    curs_set, endwin, init_pair, initscr, noecho, raw, start_color, Input, Window, COLOR_BLACK,
-    COLOR_BLUE, COLOR_GREEN, COLOR_PAIR, COLOR_RED,
+    curs_set, endwin, init_pair, initscr, noecho, raw, start_color, Attribute, Input, Window, COLOR_BLACK, COLOR_BLUE, COLOR_GREEN, COLOR_PAIR, COLOR_RED, COLOR_WHITE
 };
 
 fn read_metadata(path: &str) -> Media {
@@ -27,6 +26,7 @@ fn tui_init_color() {
     init_pair(1, COLOR_RED, COLOR_BLACK);
     init_pair(2, COLOR_BLUE, COLOR_BLACK);
     init_pair(3, COLOR_GREEN, COLOR_BLACK);
+    init_pair(4, COLOR_WHITE, COLOR_BLACK);
 }
 
 fn tui_additional_setup(win: &Window) {
@@ -55,21 +55,23 @@ pub fn start_window(path_to_file:Vec<String>, receiver2_clone: &Receiver<Command
     let mut is_loop: bool = false;
     tui_init_color();
     tui_additional_setup(&window);
-    let mut media_metadata: Media;
-    let mut concated_metadata: String;
+    let mut media_metadata: Vec<Media> = Vec::new();
+    let mut concated_metadata: Vec<String> = Vec::new();
     let mut counter: usize = 0;
     // true is next false is prev
     let mut counter_next: bool = true;
 
-    media_metadata = read_metadata(&path_to_file[counter]);
-    concated_metadata = concate_title_n_artist(&media_metadata);
+    for i in 0..path_to_file.len() {
+        media_metadata.push(read_metadata(&path_to_file[i]));
+        concated_metadata.push(concate_title_n_artist(&media_metadata[i]));
+    }
     sender_clone.send(Command::PLAY(path_to_file[counter].clone())).unwrap();
 
     loop {
         let loop_icon: String;
         match is_loop {
-            true => loop_icon = "L".to_string(),
-            false => loop_icon = "l".to_string(),
+            true => loop_icon = "Loop".to_string(),
+            false => loop_icon = "____".to_string(),
         }
         match receiver2_clone.try_recv() {
             Ok(Command::EXIT) => {
@@ -95,8 +97,6 @@ pub fn start_window(path_to_file:Vec<String>, receiver2_clone: &Receiver<Command
                     } else {
                         counter = 0;
                     }
-                    media_metadata = read_metadata(&path_to_file[counter]);
-                    concated_metadata = concate_title_n_artist(&media_metadata);
                     sender_clone.send(Command::PLAY(path_to_file[counter].clone())).unwrap();
                 }
             }
@@ -117,9 +117,9 @@ pub fn start_window(path_to_file:Vec<String>, receiver2_clone: &Receiver<Command
             keybinds,
         );
         window.mvprintw(
-            max_y - 3,
-            tui_get_str_center_x_coord(&loop_icon, max_x),
-            format!("{}", loop_icon),
+            max_y - 1,
+            1,
+            format!("[{}]", loop_icon),
         );
         window.mvprintw(
             max_y - 2,
@@ -128,11 +128,41 @@ pub fn start_window(path_to_file:Vec<String>, receiver2_clone: &Receiver<Command
         );
 
         window.attron(COLOR_PAIR(2));
+        window.attron(Attribute::Bold);
         window.mvprintw(
             (max_y / 8) + 2,
-            tui_get_str_center_x_coord(&concated_metadata, max_x),
-            &concated_metadata,
+            tui_get_str_center_x_coord(&concated_metadata[counter], max_x),
+            &concated_metadata[counter],
         );
+        window.attroff(Attribute::Bold);
+
+        let mut print_at: i32 = 1;
+        for i in 0..media_metadata.len() {
+            if i != counter {
+                window.mvprintw(
+                    (max_y / 8 as i32) + 3 + print_at as i32,
+                    tui_get_str_center_x_coord(&concated_metadata[i], max_x),
+                    &concated_metadata[i],
+                );
+                if i == counter + 1 {
+                    window.mvprintw(
+                        (max_y / 8 as i32) + 3 + print_at as i32,
+                        tui_get_str_center_x_coord(&concated_metadata[i], max_x) - 2,
+                        "N",
+                    );
+                }
+            } else {
+                window.attron(COLOR_PAIR(4));
+                window.mvprintw(
+                    (max_y / 8 as i32) + 3 + print_at as i32,
+                    tui_get_str_center_x_coord(&concated_metadata[i], max_x),
+                    &concated_metadata[i],
+                );
+                window.attron(COLOR_PAIR(2));
+            }
+            print_at += 1;
+        }
+
         let icon_l: &str;
         let icon_r: &str;
         if is_paused {
@@ -144,12 +174,12 @@ pub fn start_window(path_to_file:Vec<String>, receiver2_clone: &Receiver<Command
         }
         window.mvprintw(
             (max_y / 8) + 2,
-            tui_get_str_center_x_coord(&concated_metadata, max_x) - 2,
+            tui_get_str_center_x_coord(&concated_metadata[counter], max_x) - 2,
             icon_l,
         );
         window.mvprintw(
             (max_y / 8) + 2,
-            tui_get_str_center_x_coord(&concated_metadata, max_x) + concated_metadata.len() as i32 + 1,
+            tui_get_str_center_x_coord(&concated_metadata[counter], max_x) + concated_metadata[counter].len() as i32 + 1,
             icon_r,
         );
         window.attroff(COLOR_PAIR(2));
