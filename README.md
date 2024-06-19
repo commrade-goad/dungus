@@ -14,7 +14,9 @@ dungus music.mp3
 - `p` to toggle pause and play
 - `q` to quit
 - `[` volume down 5
-- `]` volume up 5
+- `]` volume up -5
+- `j` prev tracks
+- `k` next tracks
 
 ## TODO
 - [x] multi file (still no folder support for now)
