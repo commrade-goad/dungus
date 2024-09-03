@@ -15,18 +15,5 @@ dungus music.mp3
 - `q` to quit
 - `[` volume down 5
 - `]` volume up -5
-- `j` prev tracks
-- `k` next tracks
-
-## TODO
-- [x] multi file (still no folder support for now)
-- [x] change to use `Command::PLAY` to play audio
-- [x] working stop
-- [x] bind `j` and `k` to change tracks
-- [ ] the media list
-- [ ] config file? (maybe not)
-- [x] loop
-- [x] move metadata extract to main threads
-
-## NOTE
-This project is still Work In Progress!
+- `j` next tracks
+- `k` prev tracks
