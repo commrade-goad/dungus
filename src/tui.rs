@@ -106,12 +106,6 @@ pub fn start_window(path_to_file:Vec<String>, receiver2_clone: &Receiver<Command
                     sender_clone.send(Command::PLAY(path_to_file[counter].clone())).unwrap();
                 }
             }
-            Ok(Command::STATUS_PAUSED) => {
-                is_paused = true;
-            }
-            Ok(Command::STATUS_PLAYING) => {
-                is_paused = false;
-            }
             Ok(_) => (),
             Err(_) => (),
         }
@@ -206,6 +200,7 @@ pub fn start_window(path_to_file:Vec<String>, receiver2_clone: &Receiver<Command
             }
             Some(Input::Character(c)) if c == 'p' || c == ' ' => {
                 sender_clone.send(Command::PAUSED).unwrap();
+                is_paused = !is_paused;
             }
             Some(Input::Character(c)) if c == '[' => {
                 sender_clone.send(Command::VOLDOWN(0.05)).unwrap();
