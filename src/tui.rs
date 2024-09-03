@@ -1,7 +1,6 @@
 use crate::command::*;
 use lofty::{Accessor, Probe, TaggedFileExt};
 use std::sync::mpsc::{Receiver, Sender};
-use unicode_segmentation::*;
 use pancurses::{
     curs_set, endwin, init_pair, initscr, noecho, raw, start_color, Attribute, Input, Window, COLOR_BLACK, COLOR_BLUE, COLOR_GREEN, COLOR_PAIR, COLOR_RED, COLOR_WHITE
 };
@@ -41,11 +40,6 @@ fn tui_additional_setup(win: &Window) {
 
 fn tui_get_str_center_x_coord(str: &str, x: i32) -> i32 {
     return (x / 2) - (str.len() as i32 / 2);
-}
-
-fn get_center_coord_unicode_style(str: &str, x: i32) -> i32 {
-    // return (x/2 as i32) - str.graphemes(true).count() as i32;
-    return (x/2 as i32) - str.graphemes(false).count() as i32 + 4;
 }
 
 fn concate_title_n_artist(metadata: &Media) -> String {
@@ -106,6 +100,12 @@ pub fn start_window(path_to_file:Vec<String>, receiver2_clone: &Receiver<Command
                     sender_clone.send(Command::PLAY(path_to_file[counter].clone())).unwrap();
                 }
             }
+            Ok(Command::STATUS_PAUSED) => {
+                is_paused = true;
+            }
+            Ok(Command::STATUS_PLAYING) => {
+                is_paused = false;
+            }
             Ok(_) => (),
             Err(_) => (),
         }
@@ -137,7 +137,7 @@ pub fn start_window(path_to_file:Vec<String>, receiver2_clone: &Receiver<Command
         window.attron(Attribute::Bold);
         window.mvprintw(
             (max_y / 8) + 2,
-            get_center_coord_unicode_style(&concated_metadata[counter], max_x),
+            tui_get_str_center_x_coord(&concated_metadata[counter], max_x),
             &concated_metadata[counter],
         );
         window.attroff(Attribute::Bold);
@@ -147,13 +147,13 @@ pub fn start_window(path_to_file:Vec<String>, receiver2_clone: &Receiver<Command
             if i != counter {
                 window.mvprintw(
                     (max_y / 8 as i32) + 3 + print_at as i32,
-                    get_center_coord_unicode_style(&concated_metadata[i], max_x),
+                    tui_get_str_center_x_coord(&concated_metadata[i], max_x),
                     &concated_metadata[i],
                 );
                 if i == counter + 1 {
                     window.mvprintw(
                         (max_y / 8 as i32) + 3 + print_at as i32,
-                        get_center_coord_unicode_style(&concated_metadata[i], max_x) - 2,
+                        tui_get_str_center_x_coord(&concated_metadata[i], max_x) - 2,
                         "N",
                     );
                 }
@@ -161,7 +161,7 @@ pub fn start_window(path_to_file:Vec<String>, receiver2_clone: &Receiver<Command
                 window.attron(COLOR_PAIR(4));
                 window.mvprintw(
                     (max_y / 8 as i32) + 3 + print_at as i32,
-                    get_center_coord_unicode_style(&concated_metadata[i], max_x),
+                    tui_get_str_center_x_coord(&concated_metadata[i], max_x),
                     &concated_metadata[i],
                 );
                 window.attron(COLOR_PAIR(2));
@@ -180,12 +180,12 @@ pub fn start_window(path_to_file:Vec<String>, receiver2_clone: &Receiver<Command
         }
         window.mvprintw(
             (max_y / 8) + 2,
-            get_center_coord_unicode_style(&concated_metadata[counter], max_x) - 2,
+            tui_get_str_center_x_coord(&concated_metadata[counter], max_x) - 2,
             icon_l,
         );
         window.mvprintw(
             (max_y / 8) + 2,
-            (max_x / 2 ) as i32 + concated_metadata[counter].graphemes(false).count() as i32 - 3,
+            tui_get_str_center_x_coord(&concated_metadata[counter], max_x) + concated_metadata[counter].len() as i32 + 1,
             icon_r,
         );
         window.attroff(COLOR_PAIR(2));
@@ -200,7 +200,6 @@ pub fn start_window(path_to_file:Vec<String>, receiver2_clone: &Receiver<Command
             }
             Some(Input::Character(c)) if c == 'p' || c == ' ' => {
                 sender_clone.send(Command::PAUSED).unwrap();
-                is_paused = !is_paused;
             }
             Some(Input::Character(c)) if c == '[' => {
                 sender_clone.send(Command::VOLDOWN(0.05)).unwrap();
@@ -211,11 +210,11 @@ pub fn start_window(path_to_file:Vec<String>, receiver2_clone: &Receiver<Command
             Some(Input::Character(c)) if c == 'l' => {
                 sender_clone.send(Command::LOOP(!is_loop)).unwrap();
             }
-            Some(Input::Character(c)) if c == 'k' => {
+            Some(Input::Character(c)) if c == 'j' => {
                 sender_clone.send(Command::STOP).unwrap();
                 counter_next = false;
             }
-            Some(Input::Character(c)) if c == 'j' => {
+            Some(Input::Character(c)) if c == 'k' => {
                 sender_clone.send(Command::STOP).unwrap();
                 counter_next = true;
             }
