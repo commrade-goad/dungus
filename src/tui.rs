@@ -20,7 +20,6 @@ fn read_metadata(path: &str) -> Media {
         artist: tag.artist().as_deref().unwrap_or("None").to_string(),
     };
 }
-
 fn tui_init_color() {
     start_color();
     init_pair(1, COLOR_RED, COLOR_BLACK);
@@ -38,7 +37,14 @@ fn tui_additional_setup(win: &Window) {
     win.keypad(true);
 }
 
+fn is_multibyte(s: &str) -> bool {
+    s.chars().any(|c| {c.is_cjk()})
+}
+
 fn tui_get_str_center_x_coord(str: &str, x: i32) -> i32 {
+    if is_multibyte(str) {
+        return (x/2) - (str.chars().count() as i32 / 2);
+    }
     return (x / 2) - (str.len() as i32 / 2);
 }
 
@@ -210,11 +216,11 @@ pub fn start_window(path_to_file:Vec<String>, receiver2_clone: &Receiver<Command
             Some(Input::Character(c)) if c == 'l' => {
                 sender_clone.send(Command::LOOP(!is_loop)).unwrap();
             }
-            Some(Input::Character(c)) if c == 'j' => {
+            Some(Input::Character(c)) if c == 'k' => {
                 sender_clone.send(Command::STOP).unwrap();
                 counter_next = false;
             }
-            Some(Input::Character(c)) if c == 'k' => {
+            Some(Input::Character(c)) if c == 'j' => {
                 sender_clone.send(Command::STOP).unwrap();
                 counter_next = true;
             }
@@ -227,4 +233,26 @@ pub fn start_window(path_to_file:Vec<String>, receiver2_clone: &Receiver<Command
     }
     endwin();
     return 0;
+}
+
+trait IsCJK {
+    fn is_cjk(&self) -> bool;
+}
+
+impl IsCJK for char {
+    fn is_cjk(&self) -> bool {
+        // Unicode ranges for CJK characters
+        let cjk_ranges = [
+            (0x4E00, 0x9FFF),  // CJK Unified Ideographs
+            (0x3400, 0x4DBF),  // CJK Unified Ideographs Extension A
+            (0x20000, 0x2A6DF), // CJK Unified Ideographs Extension B
+            (0x2A700, 0x2B73F), // CJK Unified Ideographs Extension C
+            (0x2B740, 0x2B81F), // CJK Unified Ideographs Extension D
+            (0x2B820, 0x2CEAF), // CJK Unified Ideographs Extension E
+            (0xF900, 0xFAFF),  // CJK Compatibility Ideographs
+            (0x2F800, 0x2FA1F), // CJK Compatibility Ideographs Supplement
+        ];
+        let code_point = *self as u32;
+        cjk_ranges.iter().any(|&(start, end)| code_point >= start && code_point <= end)
+    }
 }
